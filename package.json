@@ -2,10 +2,9 @@
   "name": "utilities",
   "version": "0.1.0",
   "description": "utility code shared between open-physiology repos",
-  "main": "dist/index.js",
+  "main": "src/index.js",
   "scripts": {
-    "test": "mocha-webpack --opts mocha-webpack.opts",
-    "build": "cross-env BABEL_ENV=production webpack"
+    "test": "mocha-webpack --opts mocha-webpack.opts"
   },
   "repository": {
     "type": "git",
@@ -45,6 +44,7 @@
     "mocha-webpack": "0.5",
     "polyfill-function-prototype-bind": "0.0.1",
     "power-assert": "1",
+    "rearg": "0.0.2",
     "sinon": "1",
     "sinon-chai": "2",
     "source-map-support": "0.4",
@@ -55,7 +55,9 @@
   "dependencies": {
     "bound-native-methods": "0.1",
     "deep-freeze-strict": "1",
+    "lodash": "^4.17.4",
     "lodash-bound": "1",
-    "rxjs": "5"
+    "rxjs": "5",
+    "wu": "^2.1.0"
   }
 }

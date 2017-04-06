@@ -7,15 +7,15 @@ module.exports = {
 			{
 				test: /\.js$/,
 				exclude: /node_modules/,
-				loader: 'babel'
+				loader: 'babel-loader'
 			},
 			{
 				test: /\.json$/,
-				loader: 'json'
+				loader: 'json-loader'
 			},
 			{
 				test: /icons\/\w+\.png$/,
-				loader: 'url?limit=20000'
+				loader: 'url-loader?limit=20000'
 			}
 		]
 	},
