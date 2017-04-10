@@ -81,20 +81,28 @@ export class ValueTracker {
 	 *
 	 * @public
 	 * @method
-	 * @param  {String}                   name            - the name of the new property
-	 * @param  {Boolean}                 [readonly=false] - whether the value can be manually set
-	 * @param  {function(*,*):Boolean}   [isEqual]        - a predicate function by which to test for duplicate values
-	 * @param  {function(*):Boolean}     [isValid]        - a predicate function to validate a given value
-	 * @param  {function(*):*}           [transform]      - a function to transform any input value
-	 * @param  {*}                       [initial]        - the initial value of this property
+	 * @param  {String}                 name                          - the name of the new property
+	 * @param  {*}                     [source]                       - the sole source of values for this property
+	 * @param  {Boolean}               [readonly=!!source]            - whether the value can be manually set
+	 * @param  {Boolean}               [allowSynchronousAccess=true]  - allow property to be accessed synchronously through a field this[name]
+	 * @param  {Boolean}               [deriveEventStream=true]       - expose an event-stream based on changes to this property
+	 * @param  {Boolean}               [allowCacheInvalidation=false] - allow values to be repeated by invalidating the stream cache
+	 * @param  {function(*,*):Boolean} [isEqual]                      - a predicate function by which to test for duplicate values
+	 * @param  {function(*):Boolean}   [isValid]                      - a predicate function to validate a given value
+	 * @param  {function(*):*}         [transform]                    - a function to transform any input value
+	 * @param  {*}                     [initial]                      - the initial value of this property
 	 *
-	 * @return {BehaviorSubject} - the property associated with the given name
+	 * @return {Observable} - the property associated with the given name
 	 */
 	newProperty(name, {
-		readonly  = false,
-		isEqual   = (a,b) => (a===b),
-		isValid   = ()=>true,
-		transform = v=>v,
+		source                 = null,
+		readonly               = !!source,
+		allowSynchronousAccess = true, // TODO: change the default to false
+		deriveEventStream      = true, // TODO: change the default to false
+		allowCacheInvalidation = false,
+		isEqual                = (a,b) => (a===b),
+		isValid                = ()=>true,
+		transform              = v=>v,
 		initial
 	} = {}) {
 		this[$$initialize]();
@@ -104,39 +112,71 @@ export class ValueTracker {
 			`There is already an event '${name}' on this object.`);
 		assert(!this[$$properties][name],
 			`There is already a property '${name}' on this object.`);
+		
+		/* are source and readonly / initial in agreement? */
+		assert(!source || readonly,
+			`The property '${name}' cannot both have a source and not be readonly.`);
+		assert(!source || !initial,
+			`The property '${name}' cannot have both a source and a custom initial value.`);
+		assert(!source || !allowCacheInvalidation,
+			`The property '${name}' cannot both have a source and allow cache invalidation.`);
 
 		/* if isValid is an array, check for inclusion */
 		if (isValid::isArray()) { isValid = isValid::includes }
 		
-		/* if initial is a function, call it to get the initial value */
-		if (initial::isFunction()) { initial = this::initial() }
+		let result;
 		
-		/* define the bus which manages the property */
-		let subject = this[$$settableProperties][name] = new BehaviorSubject(initial)
-			// .filter(this[$$filterBy] )
-			.filter(this::isValid    )
-			.map(this::transform  )
-			// .takeUntil(this[$$takeUntil])
-			.distinctUntilChanged(this::isEqual    )
-			.filter(v => v !== invalidCache);
-		this[$$properties][name] = readonly ? subject.asObservable() : subject;
+		if (source) { /* return an Observable derived from a given source */
+			
+			if (source instanceof Observable) {
+				result = source;
+			} else if (source::isArray()) {
+				result = this.p(...source);
+			} else {
+				result = this.p(source);
+			}
+			
+		} else { /* return a BehaviorSubject */
+			
+			/* if initial is a function, call it to get the initial value */
+			if (initial::isFunction()) { initial = this::initial() }
+			
+			/* define the bus which manages the property */
+			result = new BehaviorSubject(initial);
+			
+		}
 		
-		const invalidCache = Symbol();
-		subject.invalidateCache = () => {
-			subject.next(invalidCache);
-		};
+		/* refinements */
+		if (isValid)   { result = result.filter(this::isValid)   }
+		if (transform) { result = result.map   (this::transform) }
+		result = result.distinctUntilChanged(isEqual && this::isEqual);
+		if (allowCacheInvalidation) {
+			const invalidCache = Symbol();
+			result = result.filter(v => v !== invalidCache);
+			result.invalidateCache = () => {
+				result.next(invalidCache);
+			};
+		}
+		
+		/* store property stream in object */
+		this[$$settableProperties][name] = result;
+		this[$$properties][name] = (!!source || !readonly) ? result : result.asObservable();
 		
 		/* keep track of current value */
-		this[$$properties][name].subscribe((v) => {
-			this[$$currentValues][name] = v;
-		});
+		if (allowSynchronousAccess) {
+			this[$$properties][name].subscribe((v) => {
+				this[$$currentValues][name] = v;
+			});
+		}
 		
 		/* create event version of the property */
-		this[$$events][name] = subject.asObservable()
-			.skip(1); // skip 'current value' on subscribe
-		
+		if (deriveEventStream) {
+			this[$$events][name] = (!!source ? result : result.asObservable())
+				.skip(1); // skip 'current value' on subscribe
+		}
+			
 		/* return property */
-		return this[$$settableProperties][name];
+		return result;
 	}
 
 	/**
@@ -251,19 +291,16 @@ export class ValueTracker {
 export default ValueTracker;
 
 export const property = (options = {}) => (target, key) => {
-	target::set(['constructor', $$properties, key], options);
+	target::set(['constructor', $$properties, key], { ...options, allowSynchronousAccess: true });
 	return {
-		get() { return this[$$currentValues][key] },
-		...(!options.readonly && {
-			set(value) { this.p(key).next(value) }
-		})
+		...(options.allowSynchronousAccess && { get()      { return this[$$currentValues][key] } }),
+		...(!options.readonly              && { set(value) { this.p(key).next(value)           } })
 	};
 };
 
 export const event = (options = {}) => (target, key) => {
 	let match = key.match(/^(\w+)Event$/);
-	assert(match,
-		`@event() decorators require a name that ends in 'Event'.`);
+	assert(match, "@event() decorators require a name that ends in 'Event'.");
 	let name = match[1];
 	target::set(['constructor', $$events, name], options);
 	return { get() { return this.e(name) } };
