@@ -6,6 +6,7 @@ import {
 	isUndefined,
 	trim,
 	isString,
+	isObject,
 	isArray,
 	isNumber,
 	isFunction,
@@ -67,8 +68,28 @@ export function setDefault(obj, key, val) {
 	}
 }
 
-export const match = (val, {autoInvoke = true} = {}) => (map) => {
-	let result = ( (val in map) ? map[val] : map.default );
+export const match = (val, {autoInvoke = true} = {}) => (...map) => {
+	let result;
+	if (map.length === 1 && map[0]::isObject()) {
+		map = map[0];
+		result = (val in map ? map[val] : map.default);
+	} else {
+		let defaultResult, found = false;
+		for (let [candidates, associatedResult] of map) {
+			if (candidates::isArray()) {
+				if (candidates.includes(val)) {
+					found = true;
+					result = associatedResult;
+					break;
+				}
+			} else if (candidates === 'default') {
+				defaultResult = associatedResult;
+			}
+		}
+		if (!found) {
+			result = defaultResult;
+		}
+	}
 	if (autoInvoke && result::isFunction()) { result = result() }
 	return result;
 };
