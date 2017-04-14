@@ -126,22 +126,6 @@ export const args = (...pattern) => (target, key, descriptor) => {
 	};
 };
 
-export const withoutMod = (...modifiers) => (event) =>
-	modifiers.every(m => !event[`${m}Key`]);
-
-export const withMod = (...modifiers) => (event) =>
-	modifiers.every(m => event[`${m}Key`]);
-
-export function stopPropagation(event) {
-	if (!event) { event = this } // allow :: binding or using first argument
-	event.preventDefault();
-	event.stopPropagation();
-}
-
-export function which(keyCode) {
-	return this.filter(event => event.which === keyCode);
-}
-
 export function repeat(count, str) {
 	if (!str) { str = this } // allow :: binding
 	let result = '';
