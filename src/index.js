@@ -4,6 +4,4 @@ export {ValueTracker, event, property, flag} from './ValueTracker.js';
 
 export {default as global} from './global.js';
 
-export * from './bound-hybrid-functions.js';
-
 export * from './misc.js';
