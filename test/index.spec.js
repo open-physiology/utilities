@@ -10,7 +10,6 @@ describe("package entry-point", () => {
 		expect(exports).to.have.property('ValueTracker');
 		expect(exports).to.have.property('property');
 		expect(exports).to.have.property('babelHelpers');
-		expect(exports).to.have.property('filter');
 		expect(exports).to.have.property('global');
 		expect(exports).to.have.property('humanMsg');
 		

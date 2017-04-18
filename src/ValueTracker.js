@@ -1,4 +1,4 @@
-import {includes, isArray ,set, entries, isFunction} from 'lodash-bound';
+import {includes, isArray ,set, entries, isFunction, defaults} from 'lodash-bound';
 
 import {isBoolean as _isBoolean} from 'lodash';
 
@@ -206,7 +206,7 @@ export class ValueTracker {
 	 * @param  {Array?}    deps                - a list of active dependencies for a derived property
 	 * @param  {Array?}    optionalPassiveDeps - an optional list of passive dependencies for a derived property
 	 * @param  {Function?} optionalTransformer - an optional function to map the dependencies to a new value for the derived property
-	 * @return {BehaviorSubject | Observable} - the property associated with the given name or an observable of combined properties
+	 * @return {BehaviorSubject | Observable}  - the property associated with the given name or an observable of combined properties
 	 */
 	@args('s?a?a?f?') p(name, deps, optionalPassiveDeps = [], optionalTransformer = (...a)=>a) {
 		this[$$initialize]();
@@ -291,7 +291,8 @@ export class ValueTracker {
 export default ValueTracker;
 
 export const property = (options = {}) => (target, key) => {
-	target::set(['constructor', $$properties, key], { ...options, allowSynchronousAccess: true });
+	options::defaults({ allowSynchronousAccess: true });
+	target::set(['constructor', $$properties, key], options);
 	return {
 		...(options.allowSynchronousAccess && { get()      { return this[$$currentValues][key] } }),
 		...(!options.readonly              && { set(value) { this.p(key).next(value)           } })
