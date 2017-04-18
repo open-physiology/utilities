@@ -43,6 +43,8 @@ describe("ValueTracker class", () => {
 		
 		obj.y = 5;
 		
+		expect(obj.y).to.equal(5);
+		
 		expect(log).to.eql([ [0, 1, 2] ,
 		                     [0, 5, 2] ]);
 		
