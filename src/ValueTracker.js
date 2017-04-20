@@ -307,4 +307,4 @@ export const event = (options = {}) => (target, key) => {
 	return { get() { return this.e(name) } };
 };
 
-export const flag = (initial) => property({ isValid: _isBoolean, initial });
+export const flag = ({ initial }) => property({ isValid: _isBoolean, initial });
