@@ -190,7 +190,28 @@ export class ValueTracker {
 	 */
 	e(name) {
 		this[$$initialize]();
-		return this[$$events][name] || Observable.never();
+		
+		let head = name, sep, tail;
+		const match = name.match(/^(.+?)(\??\.)(.+)$/);
+		if (match) {
+			[,head,sep,tail] = match;
+			let loose = (sep === '?.');
+			return this.p(head).switchMap((obj) => {
+				if (!obj) {
+					if (loose) { return Observable.of(null) }
+					else       { return Observable.never()  }
+				}
+				assert(obj.p::isFunction(), humanMsg`
+					The '${head}' property did not return
+					a ValueTracker-based object,
+					so it cannot be chained.
+				`); // TODO: allow simple property chaining (even if not observables)
+				return obj.e(tail);
+			});
+		} else {
+			// assert(this[$$events][name], humanMsg`No event '${name}' exists.`);
+			return this[$$events][name] || Observable.never();
+		}
 	}
 	
 	hasProperty(name) {

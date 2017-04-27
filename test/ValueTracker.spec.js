@@ -1,6 +1,6 @@
 import {describe, it, expect, beforeEach} from './test.helper';
 
-import ValueTracker, {property} from '../src/ValueTracker';
+import ValueTracker, {event, property} from '../src/ValueTracker';
 
 import {Observable} from "rxjs";
 
@@ -204,6 +204,56 @@ describe("ValueTracker class", () => {
 		obj.p('z').next(4*5);
 		
 		expect(log).to.eql([0, 3*3, 3*5, 5*5]);
+		
+	});
+	
+	it("can build dynamically linked event chains with an event (not a property) at the end", () => {
+		
+		class Person extends ValueTracker {
+			@property() phone;
+		}
+		
+		class Phone extends ValueTracker {
+			@event() ringEvent;
+		}
+		
+		let phone1 = new Phone;
+		let phone2 = new Phone;
+		let person = new Person;
+		
+		record( person.e('phone.ring') );
+		
+		expect(log).to.eql([]);
+		
+		person.phone = phone1;
+		
+		expect(log).to.eql([]);
+		
+		phone1.e('ring').next(22);
+		
+		expect(log).to.eql([ 22 ]);
+		
+		person.phone = phone2;
+		
+		phone2.e('ring').next(42);
+		
+		expect(log).to.eql([ 22, 42 ]);
+		
+		phone1.e('ring').next(999);
+		 
+		expect(log).to.eql([ 22, 42 ]);
+		
+		person.phone = phone1;
+		
+		expect(log).to.eql([ 22, 42 ]);
+		
+		person.phone = null;
+		
+		expect(log).to.eql([ 22, 42 ]);
+		
+		person.phone = phone1;
+		
+		expect(log).to.eql([ 22, 42 ]);
 		
 	});
 	
