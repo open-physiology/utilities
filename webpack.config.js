@@ -3,13 +3,13 @@ module.exports = {
 	devtool: 'source-map',
 	context: __dirname + '/src',
 	entry: {
-		'{{project-name}}': [ 'babel-polyfill', './index.js' ],
-		'{{project-name}}-minimal':           [ './index.js' ]
+		'utilities': [ 'babel-polyfill', './index.js' ],
+		'utilities-minimal':           [ './index.js' ]
 	},
 	output: {
 		path: __dirname + '/dist',
 		filename: '[name].js',
-		library: '{{library-name}}',
+		library: 'Utilities',
 		libraryTarget: 'umd',
 		sourceMapFilename: '[file].map',
 		/* source-map support for IntelliJ/WebStorm */
