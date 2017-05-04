@@ -315,8 +315,8 @@ export const property = (options = {}) => (target, key) => {
 	options::defaults({ allowSynchronousAccess: true });
 	target::set(['constructor', $$properties, key], options);
 	return {
-		...(options.allowSynchronousAccess && { get()      { return this[$$currentValues][key] } }),
-		...(!options.readonly              && { set(value) { this.p(key).next(value)           } })
+		...(options.allowSynchronousAccess && { get()      { this[$$initialize](); return this[$$currentValues][key] } }),
+		...(!options.readonly              && { set(value) { this.p(key).next(value)                                 } })
 	};
 };
 
