@@ -148,8 +148,8 @@ export class ValueTracker {
 		
 		/* refinements */
 		result = result
-			.takeUntil((...args) => this[$$takeUntil](...args))
-		    .filter   ((...args) => this[$$filterBy] (...args));
+			.takeUntil(this[$$takeUntil])
+		    .filter   (this[$$filterBy] );
 		if (isValid)   { result = result.filter(this::isValid)   }
 		if (transform) { result = result.map   (this::transform) }
 		result = result.distinctUntilChanged(isEqual && this::isEqual);
