@@ -2,7 +2,7 @@ import {describe, it, expect, beforeEach} from './test.helper';
 
 import ValueTracker, {event, property} from '../src/ValueTracker';
 
-import {Observable} from "rxjs";
+import {Observable, BehaviorSubject, Subject} from "rxjs";
 
 describe("ValueTracker class", () => {
 	
@@ -254,6 +254,57 @@ describe("ValueTracker class", () => {
 		person.phone = phone1;
 		
 		expect(log).to.eql([ 22, 42 ]);
+		
+	});
+	
+	it("can stop sending signals after a given 'takeUntil' stream", () => {
+		
+		let obj = new Vector();
+		
+		let subject = new Subject();
+		
+		obj.setValueTrackerOptions({
+			takeUntil: subject.filter(v=>v==='stop')
+		});
+		
+		record( obj.p('x') );
+		
+		expect(log).to.eql([ 0 ]);
+		
+		obj.x = 1;
+
+		expect(log).to.eql([ 0, 1 ]);
+		
+		subject.next('go on');
+		obj.x = 2;
+
+		expect(log).to.eql([ 0, 1, 2 ]);
+
+		subject.next('stop');
+		obj.x = 3;
+
+		expect(log).to.eql([ 0, 1, 2 ]);
+		
+	});
+	
+	it("can create a property procedurally and still allow field access", () => {
+		
+		let obj = new ValueTracker();
+		
+		obj.newProperty('name', {
+			allowSynchronousAccess: true,
+			initial: "Name 1"
+		});
+		
+		expect(obj.name).to.eql("Name 1");
+		
+		obj.name = "Name 2";
+		
+		expect(obj.name).to.eql("Name 2");
+
+		obj.p('name').next("Name 3");
+		
+		expect(obj.name).to.eql("Name 3");
 		
 	});
 	
