@@ -1,4 +1,4 @@
-import {includes, isArray ,set, entries, isFunction, defaults} from 'lodash-bound';
+import {includes, isArray ,set, entries, isFunction, assign} from 'lodash-bound';
 
 import {isBoolean as _isBoolean} from 'lodash';
 
@@ -8,13 +8,21 @@ import {args, humanMsg} from './misc';
 
 import {Observable, Subject, BehaviorSubject} from 'rxjs';
 
-const $$events             = Symbol('$$events');
-const $$properties         = Symbol('$$properties');
-const $$settableProperties = Symbol('$$settableProperties');
-const $$initialize         = Symbol('$$initialize');
-const $$takeUntil          = Symbol('$$takeUntil');
-const $$filterBy           = Symbol('$$filterBy');
-const $$currentValues      = Symbol('$$currentValues');
+const $$events              = Symbol('$$events');
+const $$properties          = Symbol('$$properties');
+const $$settableProperties  = Symbol('$$settableProperties');
+const $$initialize          = Symbol('$$initialize');
+const $$takeUntil           = Symbol('$$takeUntil');
+const $$filterBy            = Symbol('$$filterBy');
+const $$currentValues       = Symbol('$$currentValues');
+
+const $$yesButDoNotAddField = Symbol('$$yesButDoNotAddField');
+const getterSetter = (key, options) => ({
+	get() { this[$$initialize](); return this[$$currentValues][key] },
+	...(!options.readonly && {
+		set(value) { this.pSubject(key).next(value) }
+	})
+});
 
 /**
  * Use this as a subclass (or just mix it in) to provide support for
@@ -81,10 +89,10 @@ export class ValueTracker {
 	 *
 	 * @public
 	 * @method
-	 * @param  {String}                 name                          - the name of the new property
+	 * @param  {String}                 key                           - the key of the new property
 	 * @param  {*}                     [source]                       - the sole source of values for this property
 	 * @param  {Boolean}               [readonly=!!source]            - whether the value can be manually set
-	 * @param  {Boolean}               [allowSynchronousAccess=true]  - allow property to be accessed synchronously through a field this[name]
+	 * @param  {Boolean}               [allowSynchronousAccess=true]  - allow property to be accessed synchronously through a field this[key]
 	 * @param  {Boolean}               [deriveEventStream=true]       - expose an event-stream based on changes to this property
 	 * @param  {Boolean}               [allowCacheInvalidation=false] - allow values to be repeated by invalidating the stream cache
 	 * @param  {function(*,*):Boolean} [isEqual]                      - a predicate function by which to test for duplicate values
@@ -92,9 +100,9 @@ export class ValueTracker {
 	 * @param  {function(*):*}         [transform]                    - a function to transform any input value
 	 * @param  {*}                     [initial]                      - the initial value of this property
 	 *
-	 * @return {Observable} - the property associated with the given name
+	 * @return {Observable} - the property associated with the given key
 	 */
-	newProperty(name, {
+	newProperty(key, {
 		source                 = null,
 		readonly               = !!source,
 		allowSynchronousAccess = true, // TODO: change the default to false
@@ -107,19 +115,19 @@ export class ValueTracker {
 	} = {}) {
 		this[$$initialize]();
 
-		/* is the property name already taken? */
-		assert(!this[$$events][name],
-			`There is already an event '${name}' on this object.`);
-		assert(!this[$$properties][name],
-			`There is already a property '${name}' on this object.`);
+		/* is the property key already taken? */
+		assert(!this[$$events][key],
+			`There is already an event '${key}' on this object.`);
+		assert(!this[$$properties][key],
+			`There is already a property '${key}' on this object.`);
 		
 		/* are source and readonly / initial in agreement? */
 		assert(!source || readonly,
-			`The property '${name}' cannot both have a source and not be readonly.`);
+			`The property '${key}' cannot both have a source and not be readonly.`);
 		assert(!source || !initial,
-			`The property '${name}' cannot have both a source and a custom initial value.`);
+			`The property '${key}' cannot have both a source and a custom initial value.`);
 		assert(!source || !allowCacheInvalidation,
-			`The property '${name}' cannot both have a source and allow cache invalidation.`);
+			`The property '${key}' cannot both have a source and allow cache invalidation.`);
 
 		/* if isValid is an array, check for inclusion */
 		if (isValid::isArray()) { isValid = isValid::includes }
@@ -162,19 +170,22 @@ export class ValueTracker {
 		}
 		
 		/* store property stream in object */
-		this[$$settableProperties][name] = result;
-		this[$$properties][name] = (!!source || !readonly) ? result : result.asObservable();
+		this[$$settableProperties][key] = result;
+		this[$$properties][key] = (!!source || !readonly) ? result : result.asObservable();
 		
 		/* keep track of current value */
 		if (allowSynchronousAccess) {
-			this[$$properties][name].subscribe((v) => {
-				this[$$currentValues][name] = v;
+			this[$$properties][key].subscribe((v) => {
+				this[$$currentValues][key] = v;
 			});
+			if (allowSynchronousAccess !== $$yesButDoNotAddField) {
+				Object.defineProperty(this, key, getterSetter(key, { readonly }));
+			}
 		}
 		
 		/* create event version of the property */
 		if (deriveEventStream) {
-			this[$$events][name] = (!!source ? result : result.asObservable())
+			this[$$events][key] = (!!source ? result : result.asObservable())
 				.skip(1); // skip 'current value' on subscribe
 		}
 			
@@ -315,12 +326,9 @@ export class ValueTracker {
 export default ValueTracker;
 
 export const property = (options = {}) => (target, key) => {
-	options::defaults({ allowSynchronousAccess: true });
+	options::assign({ allowSynchronousAccess: $$yesButDoNotAddField });
 	target::set(['constructor', $$properties, key], options);
-	return {
-		...(options.allowSynchronousAccess && { get()      { this[$$initialize](); return this[$$currentValues][key] } }),
-		...(!options.readonly              && { set(value) { this.p(key).next(value)                                 } })
-	};
+	return getterSetter(key, options);
 };
 
 export const event = (options = {}) => (target, key) => {
